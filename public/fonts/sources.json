@@ -1,0 +1,20 @@
+{
+  "family": "Chillax",
+  "publisher": "Indian Type Foundry / Fontshare",
+  "cssRequest": "https://api.fontshare.com/v2/css?f[]=chillax@400,500,600&display=swap",
+  "officialPackage": "https://api.fontshare.com/v2/fonts/download/chillax",
+  "retrieved": "2026-10-27",
+  "filename": "chillax-variable.woff2",
+  "bytes": 55640,
+  "magic": "wOF2",
+  "sha256": "4554fa2df4959226daea1f25a22cd54a7e5d2539e59769d0071547713d416106",
+  "axes": [
+    {
+      "tag": "wght",
+      "min": 200.0,
+      "default": 700.0,
+      "max": 700.0
+    }
+  ],
+  "license": "LICENSE-Chillax.txt"
+}

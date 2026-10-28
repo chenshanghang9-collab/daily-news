@@ -1,0 +1,16 @@
+node_modules/
+.DS_Store
+.env
+.env.*
+!.env.example
+.runtime/
+qa/
+.vercel/
+dist/
+.pages-cache/
+.hallmark/
+task_plan.md
+findings.md
+progress.md
+docs/plans/
+design.md
