@@ -6,7 +6,7 @@ import { getArticle } from '../server/articles.mjs';
 import { getNewsImage } from '../server/images.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
-const CATEGORIES = new Set(['hot', 'world', 'tech', 'life', 'culture', 'business', 'nba']);
+const CATEGORIES = new Set(['hot', 'world', 'tech', 'life', 'culture', 'business', 'nba', 'badges']);
 const ID = /^[a-f0-9]{16}$/;
 const MAX_ITEMS = 300;
 const MAX_PHOTO_BYTES = 60 * 1024 * 1024;
@@ -41,7 +41,7 @@ async function pool(items, concurrency, work) {
   }));
 }
 function localPhotoPath(value) {
-  return typeof value === 'string' && /^images\/(?:[a-f0-9]{16}\.(?:jpg|png|webp|gif)|(?:hot|world|tech|life|culture|business|nba)\.jpg)$/.test(value);
+  return typeof value === 'string' && /^images\/(?:[a-f0-9]{16}\.(?:jpg|png|webp|gif)|(?:hot|world|tech|life|culture|business|nba|badges)\.jpg)$/.test(value);
 }
 
 /** Providers are injectable so all publication invariants can be tested offline. */

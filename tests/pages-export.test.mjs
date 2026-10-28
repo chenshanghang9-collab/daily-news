@@ -88,3 +88,21 @@ test('base paths reject injection and ambiguous relative roots', () => {
   assert.equal(normalizeBase('/'), '/'); assert.equal(normalizeBase('/a/b/'), '/a/b/');
   for (const invalid of ['relative/', '/foo', '//host/', '/a/../', '/x"/']) assert.throws(() => normalizeBase(invalid));
 });
+
+test('badge news exports an internal article and recovers its local category cover after source outage', async t => {
+  const options = await fixture(t);
+  const badge = { ...item, category: 'badges', title: '证卡打印技巧', summary: '官方来源摘要', url: 'https://www.evolis.com/blog/card-printing/' };
+  const snapshot = { ...news, items: [badge] };
+  await exportPages({ ...options, providers: { getNews: async () => snapshot, getArticle: async () => { throw Error('offline'); }, getNewsImage: async () => { throw Error('offline'); } } });
+  const article = await readJson(path.join(options.outDir, `data/articles/${badge.id}.json`));
+  assert.equal(article.category, 'badges');
+  assert.deepEqual(article.photo, { src: 'images/badges.jpg', kind: 'category' });
+  assert.equal(article.status, 'summary');
+  assert.equal(article.publishedAt, item.publishedAt);
+  assert.deepEqual(article.blocks, [{ type: 'paragraph', text: '官方来源摘要' }]);
+  const recoveredDir = path.join(options.dir, 'badges-recovered');
+  await exportPages({ ...options, outDir: recoveredDir, previousDir: options.outDir, providers: { getNews: async () => { throw Error('offline'); }, getArticle: () => assert.fail('must recover source text'), getNewsImage: () => assert.fail('must reuse cover') } });
+  const recovered = await readJson(path.join(recoveredDir, `data/articles/${badge.id}.json`));
+  assert.deepEqual(recovered.photo, { src: 'images/badges.jpg', kind: 'category' });
+  assert.ok((await readFile(path.join(recoveredDir, recovered.photo.src))).length > 1000);
+});

@@ -8,10 +8,10 @@
   <meta property="og:title" content="日常 DAILY · 每天，和世界见一面">
   <meta property="og:description" content="一份属于你的日常。今日要闻、科技、世界、生活、文化、商业和 NBA。">
   <title>日常 DAILY · 每天，和世界见一面</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261028-1">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261028-2">
   <link rel="preload" href="/fonts/chillax-variable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/style.css?v=20261028-1">
-  <script type="module" src="/app.js?v=20261028-1"></script>
+  <link rel="stylesheet" href="/style.css?v=20261028-2">
+  <script type="module" src="/app.js?v=20261028-2"></script>
 </head>
 <body>
   <a class="skip-link" href="#news-heading">跳到新闻内容</a>
@@ -31,6 +31,10 @@
           <div class="main-column">
             <section class="section-head"><div class="section-title"><h2 id="news-heading">今日精选</h2><span class="section-subtitle" id="section-subtitle">值得你留意的新鲜事</span></div><button class="refresh-button" id="refresh"><span id="refresh-icon"></span><span>刷新内容</span></button></section>
             <div id="feed-status" class="feed-status" role="status" aria-live="polite"></div>
+            <section id="badge-hub" class="badge-hub" aria-label="人像卡内容分类" hidden>
+              <p>从接单到交付，把每一张牌做好。</p>
+              <div id="badge-sections" class="badge-sections" role="group" aria-label="选择行业动态、制作流程或实用技巧"></div>
+            </section>
             <section id="featured" class="featured" aria-label="头条新闻"></section>
             <div id="feed-list" class="feed-list" aria-live="polite"></div>
             <div id="empty-state" class="empty-state" hidden></div>

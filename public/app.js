@@ -1,5 +1,6 @@
 import { createSiteMode, savedArticleFallback } from './site-mode.js?v=20261027-8';
 import { createNameStorage } from './name-storage.js?v=20261028-1';
+import { badgeGuides } from './badge-guides.js?v=20261028-2';
 const $ = (selector) => document.querySelector(selector);
 const icons = {
   search: '<circle cx="10.8" cy="10.8" r="6.5"/><path d="m16 16 4.5 4.5"/>',
@@ -12,6 +13,11 @@ const icons = {
 function icon(name) { return `<svg viewBox="0 0 24 24" aria-hidden="true">${icons[name] || icons.book}</svg>`; }
 function escapeHTML(value) { return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function safeURL(value) { try { const u = new URL(value); return ['https:', 'http:'].includes(u.protocol) ? u.href : ''; } catch { return ''; } }
+function localizeBadge(item) {
+  return item.category === 'badges' && typeof item.titleZh === 'string'
+    ? { ...item, originalTitle: item.originalTitle || item.title, title: item.titleZh, summary: item.summaryZh || item.summary }
+    : item;
+}
 const site = createSiteMode({ mode: $('meta[name="daily-mode"]')?.content, base: $('meta[name="daily-base"]')?.content });
 const categories = [
   { id: 'hot', name: '今日精选', short: '要闻', en: 'THE DAILY EDIT' },
@@ -21,6 +27,7 @@ const categories = [
   { id: 'culture', name: '人文与艺术', short: '文化', en: 'ARTS & CULTURE' },
   { id: 'business', name: '商业观察', short: '商业', en: 'BUSINESS & IDEAS' },
   { id: 'nba', name: 'NBA 专栏', short: 'NBA', en: 'ON THE COURT' },
+  { id: 'badges', name: '人像卡', short: '人像卡', en: 'CARDS & BADGES' },
 ];
 const categoryInfo = (id) => categories.find((c) => c.id === id) || categories[0];
 function readStorage(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } }
@@ -28,6 +35,10 @@ function writeStorage(key, value) { try { localStorage.setItem(key, JSON.stringi
 const nameStorage = createNameStorage();
 const savedLogin = nameStorage.load();
 const state = { name: savedLogin.name, rememberName: savedLogin.remember, category: 'hot', query: '', items: [], data: null, saved: [], limit: 10, loading: false, loaded: false };
+state.badgeSection = 'news';
+const badgeSections = [{ id: 'news', name: '行业动态' }, { id: 'workflow', name: '制作流程' }, { id: 'tips', name: '实用技巧' }];
+const validBadgeSection = value => badgeSections.some(section => section.id === value) ? value : 'news';
+const findItem = id => badgeGuides.find(item => item.id === id) || state.items.find(item => item.id === id) || state.saved.find(item => item.id === id) || (state.article?.id === id ? state.article : null);
 state.article = null;
 state.carousel = { items: [], index: 0, scope: '' };
 let articleRequest = 0;
@@ -49,6 +60,7 @@ const photoPending = new Map();
 const photoQueue = [];
 let activePhotos = 0;
 function resolvePhoto(item) {
+  if (item.kind === 'guide') return Promise.resolve({ src: categoryPhoto('badges'), kind: 'category' });
   if (site.isStatic) return Promise.resolve({ src: site.image(item.photo?.src) || categoryPhoto(item.category), kind: site.image(item.photo?.src) && item.photo?.kind === 'article' ? 'article' : 'category' });
   if (photoCache.has(item.id)) return Promise.resolve(photoCache.get(item.id));
   if (photoPending.has(item.id)) return photoPending.get(item.id);
@@ -76,7 +88,7 @@ function drainPhotos() {
 }
 function hydratePhotos() {
   document.querySelectorAll('img[data-photo]').forEach((img) => {
-    const item = state.items.find((x) => x.id === img.dataset.photo) || state.saved.find((x) => x.id === img.dataset.photo) || (state.article?.id === img.dataset.photo ? state.article : null);
+    const item = findItem(img.dataset.photo);
     if (!item) return;
     resolvePhoto(item).then((result) => {
       if (!img.isConnected) return;
@@ -146,10 +158,11 @@ function revealSelectedTab() {
   }
 }
 window.addEventListener('resize', revealSelectedTab);
-function selectCategory(category, { push = true, scroll = false, limit = 10, query = state.query } = {}) {
+function selectCategory(category, { push = true, scroll = false, limit = 10, query = state.query, badgeSection = state.badgeSection } = {}) {
   articleRequest++; state.article = null;
   $('#reader-view').hidden = true; $('#home-view').hidden = false; $('.skip-link').href = '#news-heading';
-  if (push) history.pushState({}, '', category === 'hot' ? site.home : `${site.home}?category=${encodeURIComponent(category)}`);
+  state.badgeSection = validBadgeSection(badgeSection);
+  if (push) history.pushState({}, '', category === 'hot' ? site.home : `${site.home}?category=${encodeURIComponent(category)}${category === 'badges' && state.badgeSection !== 'news' ? `&section=${state.badgeSection}` : ''}`);
   state.category = category; state.limit = limit; state.query = query; $('#search-input').value = query;
   document.querySelectorAll('.nav-tab').forEach((el) => { el.classList.toggle('active', el.dataset.category === category); el.setAttribute('aria-pressed', String(el.dataset.category === category)); });
   revealSelectedTab();
@@ -159,6 +172,10 @@ function selectCategory(category, { push = true, scroll = false, limit = 10, que
   if (scroll) window.scrollTo({ top: 0, behavior: 'instant' });
 }
 $('#nav-tabs').addEventListener('click', (event) => { const tab = event.target.closest('[data-category]'); if (tab) selectCategory(tab.dataset.category); });
+$('#badge-sections').addEventListener('click', event => {
+  const button = event.target.closest('[data-badge-section]');
+  if (button) selectCategory('badges', { badgeSection: button.dataset.badgeSection });
+});
 $('#saved-nav').addEventListener('click', () => selectCategory('saved'));
 $('#surprise-button').addEventListener('click', () => { const available = categories.filter((c) => c.id !== state.category && c.id !== 'hot' && state.items.some((x) => x.category === c.id)); const category = available[Math.floor(Math.random() * available.length)] || categories[1]; state.query = ''; $('#search-input').value = ''; selectCategory(category.id); $('#news-heading').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
 $('#search-toggle').addEventListener('click', () => { $('#search-panel').hidden = !$('#search-panel').hidden; if (!$('#search-panel').hidden) $('#search-input').focus(); });
@@ -176,7 +193,11 @@ function timeLabel(value) {
   if (minutes >= 60 && minutes < 1440) return `${Math.floor(minutes / 60)}小时前`;
   return new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
 }
-function metadata(item) { return `<div class="story-meta"><span>${escapeHTML(item.source)}</span><time${item.publishedAt ? ` datetime="${escapeHTML(item.publishedAt)}"` : ''} title="${escapeHTML(item.publishedAt ? new Date(item.publishedAt).toLocaleString('zh-CN') : '来源未提供发布时间')}">${escapeHTML(timeLabel(item.publishedAt))}</time></div>`; }
+function metadata(item) {
+  if (item.kind === 'guide') return `<div class="story-meta"><span>${escapeHTML(item.source)}</span><span>${item.section === 'workflow' ? '制作流程' : '实用技巧'} · 本站整理</span></div>`;
+  const label = item.category === 'badges' && item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: 'long', day: 'numeric' }) : timeLabel(item.publishedAt);
+  return `<div class="story-meta"><span>${escapeHTML(item.source)}</span>${item.selection === 'curated' ? '<span>已核实选读</span>' : ''}<time${item.publishedAt ? ` datetime="${escapeHTML(item.publishedAt)}"` : ''} title="${escapeHTML(item.publishedAt ? new Date(item.publishedAt).toLocaleString('zh-CN') : '来源未提供发布时间')}">${escapeHTML(label)}</time></div>`;
+}
 function bookmarkButton(item) { const saved = isSaved(item.id); return `<button class="bookmark${saved ? ' is-saved' : ''}" data-save="${escapeHTML(item.id)}" aria-label="${saved ? '取消收藏' : '收藏'}：${escapeHTML(item.title)}" aria-pressed="${saved}" title="${saved ? '取消收藏' : '收藏文章'}">${icon('bookmark')}</button>`; }
 function feedExcerpt(text, limit = 64) {
   const characters = Array.from(text || '');
@@ -242,15 +263,21 @@ function emptyState(title, description, action = '') { $('#empty-state').hidden 
 function render() {
   if (state.loading && !state.loaded) return;
   const saved = state.category === 'saved';
-  const carouselScope = JSON.stringify([state.category, state.query]);
+  const badgeMode = state.category === 'badges';
+  const carouselScope = JSON.stringify([state.category, state.query, badgeMode ? state.badgeSection : '']);
   if (state.carousel.scope !== carouselScope) {
     state.carousel = { items: [], index: 0, scope: carouselScope };
   }
   let items = saved ? [...state.saved] : state.items.filter((item) => state.category === 'hot' || item.category === state.category);
+  if (badgeMode && state.badgeSection !== 'news') items = badgeGuides.filter(item => item.section === state.badgeSection);
   const query = state.query.toLocaleLowerCase();
   if (query) items = items.filter((item) => `${item.title} ${item.summary || ''} ${item.source || ''}`.toLocaleLowerCase().includes(query));
   $('#news-heading').textContent = saved ? '我的收藏' : categoryInfo(state.category).name;
-  $('#section-subtitle').textContent = state.query ? `找到 ${items.length} 篇相关内容` : saved ? '好内容，留着慢慢看' : state.category === 'hot' ? '值得你留意的新鲜事' : state.category === 'nba' ? '赛场动态、球队与球星，每天看一点' : '让好奇心，多走一步';
+  $('#section-subtitle').textContent = state.query ? `找到 ${items.length} 篇相关内容` : saved ? '好内容，留着慢慢看' : state.category === 'hot' ? '值得你留意的新鲜事' : state.category === 'nba' ? '赛场动态、球队与球星，每天看一点' : badgeMode ? '工牌、校牌、胸牌与徽章制作' : '让好奇心，多走一步';
+  $('#badge-hub').hidden = !badgeMode;
+  if (badgeMode) {
+    $('#badge-sections').innerHTML = badgeSections.map(section => `<button type="button" data-badge-section="${section.id}" aria-pressed="${state.badgeSection === section.id}">${section.name}<span>${section.id === 'news' ? state.items.filter(item => item.category === 'badges').length : badgeGuides.filter(item => item.section === section.id).length}</span></button>`).join('');
+  }
   $('#greeting-description').textContent = saved ? '把喜欢的内容留下，随时回来读一读。' : '把纷繁的信息，变成刚刚好的日常。';
   $('#featured').innerHTML = ''; $('#feed-list').innerHTML = ''; $('#empty-state').hidden = true;
   $('#feed-end').hidden = true; $('#load-more').hidden = true;
@@ -259,7 +286,7 @@ function render() {
     else if (saved) emptyState('把喜欢的内容，留给以后的自己', '点击文章旁的收藏图标，它就会出现在这里。', '<button class="primary-action" data-action="go-home">去看看今日精选</button>');
     else emptyState('新消息正在路上', '这个栏目的新闻暂时没有送达。稍后刷新，或换一个栏目看看。', '<button class="primary-action" data-action="retry">再试一次</button>');
   } else {
-    const showFeature = !saved && !query;
+    const showFeature = !saved && !query && !(badgeMode && state.badgeSection !== 'news');
     const featuredCount = showFeature ? Math.min(5, items.length) : 0;
     if (showFeature) renderFeature(items.slice(0, featuredCount));
     const visible = items.slice(featuredCount, state.limit);
@@ -274,6 +301,7 @@ function updateStatus() {
   const el = $('#feed-status');
   el.classList.remove('warning');
   if (state.category === 'saved') { el.textContent = '收藏保存在当前浏览器中，换个名字会切换收藏夹。'; return; }
+  if (state.category === 'badges' && state.badgeSection !== 'news') { el.textContent = '本站整理的中文工作指南，参考资料列在文末。具体工艺以实际设备、材料和打样结果为准。'; return; }
   if (!state.data) { el.textContent = state.loaded ? '新闻源暂时无法连接，可稍后刷新。' : ''; return; }
   const sourceTime = site.isStatic ? state.data.generatedAt || state.data.fetchedAt : state.data.fetchedAt;
   const time = sourceTime ? new Date(sourceTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '';
@@ -282,6 +310,10 @@ function updateStatus() {
   if (site.isStatic) el.textContent = `${sourceTime ? new Date(sourceTime).toLocaleString('zh-CN') + ' 快照' : '已发布快照'}，按发布时间排序${state.query ? `，搜索“${state.query}”` : ''}。约每小时自动更新，可能延迟；刷新仅重新读取已发布内容`;
   if (state.data.stale || state.data.status === 'partial') { el.classList.add('warning'); el.textContent += '。部分来源暂未更新，已保留最近内容'; }
   if (state.data.status === 'unavailable') { el.classList.add('warning'); el.textContent = '新闻源暂时无法连接，稍后再来看看。'; }
+  if (state.category === 'badges') {
+    const source = state.data.sources?.find(source => source.category === 'badges');
+    el.textContent += `。${source?.note || '行业动态来自 Evolis 官方博客，产品信息为厂商介绍；旧文保留原始日期，来源未提供的日期不补写。'}`;
+  }
 }
 document.addEventListener('click', (event) => {
   const link = event.target.closest('a[data-article]');
@@ -292,7 +324,7 @@ document.addEventListener('click', (event) => {
   if (save) {
     if (!state.name) return openLogin();
     const id = save.dataset.save; const existing = isSaved(id);
-    const item = state.items.find((x) => x.id === id) || state.saved.find((x) => x.id === id) || (state.article?.id === id ? state.article : null);
+    const item = findItem(id);
     if (!item) return;
     if (existing) state.saved = state.saved.filter((x) => x.id !== id);
     else { if (state.saved.length >= 100) return toast('收藏夹已经有 100 篇了，整理一些再收藏吧。'); state.saved.unshift(item); }
@@ -312,7 +344,7 @@ function updateReaderSave() {
 }
 function returnToList() {
   if (history.state?.listDepth > 0) history.go(-history.state.listDepth);
-  else { selectCategory(state.article?.category || 'hot', { scroll: true }); }
+  else { selectCategory(state.article?.category || 'hot', { scroll: true, badgeSection: state.article?.section || 'news' }); }
 }
 async function openArticle(href, push = true) {
   const url = new URL(href, location.origin);
@@ -320,17 +352,18 @@ async function openArticle(href, push = true) {
   if (!id) return selectCategory('hot', { push: false });
   if (push) {
     const depth = !state.article ? 1 : history.state?.listDepth > 0 ? history.state.listDepth + 1 : 0;
-    if (!state.article) { homeScroll = window.scrollY; history.replaceState({ ...history.state, listSnapshot: { category: state.category, limit: state.limit, query: state.query, scroll: homeScroll } }, ''); }
+    if (!state.article) { homeScroll = window.scrollY; history.replaceState({ ...history.state, listSnapshot: { category: state.category, limit: state.limit, query: state.query, badgeSection: state.badgeSection, scroll: homeScroll } }, ''); }
     history.pushState({ dailyArticle: true, listDepth: depth }, '', url.pathname + url.search);
   }
   const request = ++articleRequest;
-  const item = state.items.find((x) => x.id === id) || state.saved.find((x) => x.id === id);
+  const item = findItem(id);
   state.article = item || { id: id };
   $('#home-view').hidden = true; $('#reader-view').hidden = false; $('.skip-link').href = '#reader-title';
   $('#search-panel').hidden = true;
   document.title = `${item?.title || '文章阅读'} · 日常 DAILY`;
   $('#reader-view').innerHTML = `<button class="reader-back" data-action="reader-back">${icon('back')}<span>返回资讯列表</span></button><div class="reader-loading" role="status"><div class="skeleton skeleton-row"></div><p>正在打开文章…</p><div class="skeleton skeleton-feature"></div></div>`;
   window.scrollTo({ top: 0, behavior: 'instant' });
+  if (item?.kind === 'guide') { state.article = item; renderReader(item); return; }
   try {
     const params = new URLSearchParams({ id: id });
     const source = url.searchParams.get('url') || item?.url;
@@ -344,7 +377,7 @@ async function openArticle(href, push = true) {
       }
     }
     if (!response.ok) throw new Error(response.status === 404 ? '这篇文章暂时找不到了，请返回列表选择其他内容。' : '文章暂时没有送达，请稍后重试。');
-    const article = await response.json();
+    const article = localizeBadge(await response.json());
     if (request !== articleRequest) return;
     if (!article || typeof article.title !== 'string' || !Array.isArray(article.blocks)) throw new Error('文章暂时没有送达，请稍后重试。');
     state.article = article; renderReader(article);
@@ -369,8 +402,12 @@ function renderReader(article) {
     if (block.type === 'image' && site.image(block.src)) return `<figure class="body-photo"><img src="${escapeHTML(site.image(block.src))}" alt="${escapeHTML(block.caption || '')}" loading="lazy" referrerpolicy="no-referrer" data-body-photo><figcaption>${escapeHTML(block.caption || '图片来源：' + article.source)}</figcaption></figure>`;
     return '';
   }).join('');
-  const related = state.items.filter((x) => x.id !== article.id && x.category === article.category).slice(0, 3);
-  $('#reader-view').innerHTML = `<div class="reader-topline"><button class="reader-back" data-action="reader-back">${icon('back')}<span>返回资讯列表</span></button><span>日常 / ${escapeHTML(info.name)}</span></div><article class="reader-article"><header class="reader-header"><h1 id="reader-title" tabindex="-1">${escapeHTML(article.title)}</h1><div class="reader-meta-row">${metadata(article)}<div class="reader-save" id="reader-save"></div></div></header><figure class="reader-cover">${photo(article, true)}<figcaption data-original="${escapeHTML(coverCredit)}">栏目配图 · 作者及许可见页脚“照片版权”。</figcaption></figure>${article.savedSnapshotNotice ? `<div class="reader-notice"><strong>正在阅读本地收藏</strong><p>${escapeHTML(article.savedSnapshotNotice)}</p></div>` : ''}${article.status === 'summary' && !article.savedSnapshotNotice ? `<div class="reader-notice"><strong>当前可读内容为来源摘要</strong><p>完整正文暂时无法获取，我们先保留已发布的摘要。${site.isStatic ? '重新读取仅加载已发布快照，不会即时获取来源正文。' : '你可以稍后重新加载。'}</p><button data-action="reader-retry">${site.isStatic ? '重新读取快照' : '重新加载正文'}</button></div>` : ''}<div class="reader-body">${content || (article.savedSnapshotNotice ? '<p>此浏览器未保存这篇文章的摘要或正文。</p>' : '<p>来源暂未提供可读正文，请稍后再试。</p>')}</div><div class="reader-attribution"><span>${icon('source')}</span><p>内容来源：${escapeHTML(article.source)}${article.byline ? ' · ' + escapeHTML(article.byline) : ''}。文章与图片版权归原作者及原发布方所有。<br>由日常整理展示，保留来源标注与发布时间。</p></div><button class="reader-bottom-back" data-action="reader-back">${icon('back')}<span>返回资讯列表</span></button></article>${related.length ? `<section class="reader-related"><div class="section-title"><h2>继续读一读</h2></div><div class="related-grid">${related.map((item) => `<article><a class="related-photo" href="${escapeHTML(articleHref(item))}" data-article="${escapeHTML(item.id)}">${photo(item)}</a><h3>${storyLink(item)}</h3>${metadata(item)}</article>`).join('')}</div></section>` : ''}`;
+  const bodyHasIntro = article.blocks.some(block => block.type === 'paragraph' && block.text === article.summaryZh);
+  const related = (article.kind === 'guide' ? badgeGuides : state.items).filter((x) => x.id !== article.id && x.category === article.category).slice(0, 3);
+  const attribution = article.kind === 'guide'
+    ? `日常整理的中文工作建议，参考以下资料：<br>${(article.references || []).map(ref => `${escapeHTML(ref.source)}《${escapeHTML(ref.title)}》 · ${escapeHTML(ref.publishedAt || '来源未注明日期')}`).join('<br>')}<br>指南内容由本站整理，技术与产品信息来自上述官方资料。`
+    : `内容来源：${escapeHTML(article.source)}${article.byline ? ' · ' + escapeHTML(article.byline) : ''}。文章与图片版权归原作者及原发布方所有。<br>由日常整理展示，保留来源标注与发布时间。`;
+  $('#reader-view').innerHTML = `<div class="reader-topline"><button class="reader-back" data-action="reader-back">${icon('back')}<span>返回资讯列表</span></button><span>日常 / ${escapeHTML(info.name)}</span></div><article class="reader-article"><header class="reader-header"><h1 id="reader-title" tabindex="-1">${escapeHTML(article.title)}</h1><div class="reader-meta-row">${metadata(article)}<div class="reader-save" id="reader-save"></div></div></header><figure class="reader-cover">${photo(article, true)}<figcaption data-original="${escapeHTML(coverCredit)}">栏目配图 · 作者及许可见页脚“照片版权”。</figcaption></figure>${article.savedSnapshotNotice ? `<div class="reader-notice"><strong>正在阅读本地收藏</strong><p>${escapeHTML(article.savedSnapshotNotice)}</p></div>` : ''}${article.status === 'summary' && !article.savedSnapshotNotice ? `<div class="reader-notice"><strong>当前可读内容为来源摘要</strong><p>完整正文暂时无法获取，我们先保留已发布的摘要。${site.isStatic ? '重新读取仅加载已发布快照，不会即时获取来源正文。' : '你可以稍后重新加载。'}</p><button data-action="reader-retry">${site.isStatic ? '重新读取快照' : '重新加载正文'}</button></div>` : ''}${article.titleZh && article.summaryZh ? `<div class="reader-notice"><strong>中文导读</strong>${bodyHasIntro ? '' : `<p>${escapeHTML(article.summary)}</p>`}<p>${article.status === 'full' ? '下方正文保留来源原文。' : '下方为当前保留的摘要内容。'}</p><p>原标题：${escapeHTML(article.originalTitle)}</p></div>` : ''}<div class="reader-body">${content || (article.savedSnapshotNotice ? '<p>此浏览器未保存这篇文章的摘要或正文。</p>' : '<p>来源暂未提供可读正文，请稍后再试。</p>')}</div><div class="reader-attribution"><span>${icon('source')}</span><p>${attribution}</p></div><button class="reader-bottom-back" data-action="reader-back">${icon('back')}<span>返回资讯列表</span></button></article>${related.length ? `<section class="reader-related"><div class="section-title"><h2>继续读一读</h2></div><div class="related-grid">${related.map((item) => `<article><a class="related-photo" href="${escapeHTML(articleHref(item))}" data-article="${escapeHTML(item.id)}">${photo(item)}</a><h3>${storyLink(item)}</h3>${metadata(item)}</article>`).join('')}</div></section>` : ''}`;
   updateReaderSave(); hydratePhotos();
   document.querySelectorAll('[data-body-photo]').forEach((img) => img.addEventListener('error', () => { img.src = categoryPhoto(article.category); img.removeAttribute('data-body-photo'); img.closest('figure').querySelector('figcaption').textContent = '栏目配图'; }, { once: true }));
   $('#reader-title').focus({ preventScroll: true });
@@ -378,7 +415,7 @@ function renderReader(article) {
 }
 window.addEventListener('popstate', () => {
   if (site.articleId(new URL(location.href))) openArticle(location.href, false);
-  else { const snapshot = history.state?.listSnapshot; const category = new URLSearchParams(location.search).get('category') || 'hot'; selectCategory(categories.some((c) => c.id === category) || category === 'saved' ? category : 'hot', { push: false, limit: snapshot?.limit || 10, query: snapshot?.query || '' }); window.scrollTo({ top: snapshot?.scroll || 0, behavior: 'instant' }); }
+  else { const snapshot = history.state?.listSnapshot; const category = new URLSearchParams(location.search).get('category') || 'hot'; selectCategory(categories.some((c) => c.id === category) || category === 'saved' ? category : 'hot', { push: false, limit: snapshot?.limit || 10, query: snapshot?.query || '', badgeSection: snapshot?.badgeSection || new URLSearchParams(location.search).get('section') }); window.scrollTo({ top: snapshot?.scroll || 0, behavior: 'instant' }); }
 });
 async function loadNews(force = false) {
   if (state.loading) return;
@@ -390,7 +427,7 @@ async function loadNews(force = false) {
     if (!response.ok) throw new Error('news unavailable');
     const data = await response.json();
     if (!Array.isArray(data.items)) throw new Error('invalid response');
-    state.items = data.items.filter((item) => item && typeof item.id === 'string' && typeof item.title === 'string' && safeURL(item.url)); state.data = data;
+    state.items = data.items.filter((item) => item && typeof item.id === 'string' && typeof item.title === 'string' && safeURL(item.url)).map(localizeBadge); state.data = data;
     renderTrending();
     if (force && !state.items.length) toast('新闻源暂时没送达，稍后再试试。');
   } catch {
@@ -408,7 +445,7 @@ if (site.isStatic) {
 }
 loadSaved(); updateDate();
 const initialCategory = new URLSearchParams(location.search).get('category');
-if (categories.some((c) => c.id === initialCategory) || initialCategory === 'saved') selectCategory(initialCategory, { push: false });
+if (categories.some((c) => c.id === initialCategory) || initialCategory === 'saved') selectCategory(initialCategory, { push: false, badgeSection: new URLSearchParams(location.search).get('section') });
 updateUser(); renderTrending(); loadNews();
 if (site.articleId(new URL(location.href))) openArticle(location.href, false);
 if (!state.name) openLogin();

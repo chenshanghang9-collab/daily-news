@@ -28,4 +28,6 @@
   --color-clear: transparent; --color-scrim: oklch(20% 0.014 255 / 0.46); --color-glass: rgba(255,255,255,.52); --color-glass-edge: rgba(255,255,255,.64); --color-glass-ink: #0b1624;
   --color-coral-edge: #c4cfdb; --color-blue-soft: #e8f0f8; --color-on-photo: #f6f8fc; --color-photo-panel: rgba(16,28,44,.9); --color-photo-hover: rgba(255,255,255,.16); --shadow-stock: 0 1px 3px rgba(34,52,76,.08);
   --grain: none;
+  --color-nav-shade: rgba(246,249,252,.68); --color-nav-shade-hover: rgba(246,249,252,.55);
+  --color-nav-active-shade: rgba(18,39,63,.73); --color-nav-active-hover: rgba(18,39,63,.68);
 }

@@ -5,6 +5,7 @@ node_modules/
 !.env.example
 .runtime/
 qa/
+.playwright-cli/
 .vercel/
 dist/
 .pages-cache/

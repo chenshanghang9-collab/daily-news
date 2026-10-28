@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   try {
     const url = new URL(req.url, 'http://localhost');
     const category = url.searchParams.get('category') || 'hot';
-    if (!['hot', 'tech', 'world', 'life', 'culture', 'business', 'nba'].includes(category)) {
+    if (!['hot', 'tech', 'world', 'life', 'culture', 'business', 'nba', 'badges'].includes(category)) {
       return send(400, { error: '未知栏目' });
     }
     const data = await getNews({ category, force: url.searchParams.get('refresh') === '1' });

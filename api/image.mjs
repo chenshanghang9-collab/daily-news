@@ -1,7 +1,7 @@
 import { validateArticleRequest } from '../server/articles.mjs';
 import { getNewsImage } from '../server/images.mjs';
 
-const categories = new Set(['hot', 'tech', 'world', 'life', 'culture', 'business', 'nba']);
+const categories = new Set(['hot', 'tech', 'world', 'life', 'culture', 'business', 'nba', 'badges']);
 
 export default async function handler(req, res) {
   const sendError = (status, message) => {

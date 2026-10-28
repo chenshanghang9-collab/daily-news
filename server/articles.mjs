@@ -10,6 +10,7 @@ const PUBLISHERS = new Map([
   ['www.chinanews.com.cn', 'chinanews'], ['chinanews.com.cn', 'chinanews'],
   ['www.ithome.com', 'ithome'], ['ithome.com', 'ithome'],
   ['sports.cctv.com', 'cctv'],
+  ['www.evolis.com', 'evolis'],
 ]);
 const MAX_BYTES = 2_000_000;
 const TIMEOUT_MS = 9_000;
@@ -32,7 +33,9 @@ function articleUrl(value, expectedPublisher) {
     throw badRequest('仅支持已接入新闻来源的公开文章地址');
   }
   if (expectedPublisher && publisher !== expectedPublisher) throw badRequest('来源跳转至其他网站');
-  const validPath = publisher === 'ithome'
+  const validPath = publisher === 'evolis'
+    ? parsed.protocol === 'https:' && /^\/blog\/(?!category(?:\/|$)|tag(?:\/|$)|page(?:\/|$)|feed(?:\/|$))[a-z\d_%.-]+\/?$/i.test(parsed.pathname)
+    : publisher === 'ithome'
     ? /^\/\d+\/\d{3}\/\d{3}\.htm$/.test(parsed.pathname)
     : publisher === 'cctv'
       ? /^\/\d{4}\/\d{2}\/\d{2}\/ARTI[a-z\d]{15,64}\.shtml$/i.test(parsed.pathname)
@@ -47,7 +50,9 @@ function imageUrl(value, base) {
     const parsed = new URL(value, base);
     if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password || parsed.port) return null;
     const publisher = PUBLISHERS.get(new URL(base).hostname);
-    const allowed = publisher === 'ithome'
+    const allowed = publisher === 'evolis'
+      ? parsed.protocol === 'https:' && ['www.evolis.com', 'fr.evolis.com'].includes(parsed.hostname) && /^\/wp-content\/uploads\//.test(parsed.pathname)
+      : publisher === 'ithome'
       ? parsed.hostname === 'img.ithome.com'
       : publisher === 'cctv'
         ? /^p[1-5]\.img\.cctvpic\.com$/.test(parsed.hostname)
@@ -93,12 +98,17 @@ export function parseArticleHtml(html, item) {
     publishedAt: item.publishedAt || publishedTime(document),
   };
   const publisher = PUBLISHERS.get(new URL(item.url).hostname);
-  const root = document.querySelector(publisher === 'ithome'
-    ? '#paragraph.post_content, #paragraph, .post_content'
-    : publisher === 'cctv'
-      ? '#content_area'
-      : '.left_zw, #content_area .content, #content_area, .content_area');
+  const root = publisher === 'evolis'
+    ? document.querySelector('article .single-post__content')
+      || document.querySelector('article .entry-content, article .post-content, article .content, .entry-content')
+      || document.querySelector('article')
+    : document.querySelector(publisher === 'ithome'
+      ? '#paragraph.post_content, #paragraph, .post_content'
+      : publisher === 'cctv' ? '#content_area' : '.left_zw, #content_area .content, #content_area, .content_area');
   if (!root) return summaryArticle(metadata, '来源页面暂未提供可读取的正文，当前展示来源摘要。');
+  if (publisher === 'evolis') {
+    for (const node of root.querySelectorAll('h1, .single-post__category, .single-post__date, .social-sharing-links, .wp-block-buttons')) node.remove();
+  }
   const byline = text(document.querySelector('#author_baidu, [itemprop="author"]')?.textContent).replace(/^作者[：:]\s*/, '') || null;
   for (const node of root.querySelectorAll('script, style, noscript, iframe, form, button, nav, footer, svg, .adInContent, .adEditor, .left_name, .advertisement, .related_post, .shareto, #function_code_page, [hidden], [aria-hidden="true"]')) node.remove();
   for (const node of root.querySelectorAll('[style]')) {
@@ -124,7 +134,7 @@ export function parseArticleHtml(html, item) {
     const width = Number(node.getAttribute('w') || node.getAttribute('width'));
     const height = Number(node.getAttribute('h') || node.getAttribute('height'));
     if ((width > 0 && width < 80) || (height > 0 && height < 60)) return;
-    const src = imageUrl(node.getAttribute('data-original') || node.getAttribute('data-src') || node.getAttribute('src'), item.url);
+    const src = imageUrl(node.getAttribute('data-original') || node.getAttribute('data-lazy-src') || node.getAttribute('data-src') || node.getAttribute('src'), item.url);
     if (!src || seenImages.has(src)) return;
     const figure = node.closest('figure');
     const container = node.closest('p, figure') || node.parentElement;
@@ -268,12 +278,12 @@ async function fetchArticleHtml(initialUrl) {
 function fallbackItem(id, url) {
   const publisher = PUBLISHERS.get(new URL(url).hostname);
   const section = new URL(url).pathname.split('/')[1];
-  const category = publisher === 'cctv' ? 'nba' : publisher === 'ithome' ? 'tech'
+  const category = publisher === 'evolis' ? 'badges' : publisher === 'cctv' ? 'nba' : publisher === 'ithome' ? 'tech'
     : ['cj', 'stock', 'auto', 'house'].includes(section) ? 'business'
       : ['gj', 'hr'].includes(section) ? 'world'
         : ['cul', 'yl', 'shuhu'].includes(section) ? 'culture'
           : ['ty', 'sh', 'jk', 'life', 'travel', 'edu', 'health'].includes(section) ? 'life' : 'hot';
-  return { id, title: '', summary: '', url, source: publisher === 'cctv' ? '央视网' : publisher === 'ithome' ? 'IT之家' : '中国新闻网', sourceId: publisher, category, publishedAt: null };
+  return { id, title: '', summary: '', url, source: publisher === 'evolis' ? 'Evolis 官方' : publisher === 'cctv' ? '央视网' : publisher === 'ithome' ? 'IT之家' : '中国新闻网', sourceId: publisher, category, publishedAt: null };
 }
 
 /** Validate identity before either article or image endpoints do network work. */
