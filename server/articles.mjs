@@ -11,6 +11,7 @@ const PUBLISHERS = new Map([
   ['www.ithome.com', 'ithome'], ['ithome.com', 'ithome'],
   ['sports.cctv.com', 'cctv'],
   ['www.evolis.com', 'evolis'],
+  ['www.mrkl.com.cn', 'mrkl'], ['www.cnxw.com.cn', 'cnxw'], ['hznews.hangzhou.com.cn', 'hangzhou'],
 ]);
 const MAX_BYTES = 2_000_000;
 const TIMEOUT_MS = 9_000;
@@ -33,7 +34,10 @@ function articleUrl(value, expectedPublisher) {
     throw badRequest('仅支持已接入新闻来源的公开文章地址');
   }
   if (expectedPublisher && publisher !== expectedPublisher) throw badRequest('来源跳转至其他网站');
-  const validPath = publisher === 'evolis'
+  if (['cnxw', 'mrkl', 'hangzhou'].includes(publisher) && (parsed.protocol !== 'https:' || parsed.search)) throw badRequest('国内来源地址无效');
+  const validPath = publisher === 'cnxw' ? /^\/system\/\d{4}\/\d{2}\/\d{2}\/\d+\.shtml$/.test(parsed.pathname) : publisher === 'mrkl' ? /^\/news\/\d+\.html$/.test(parsed.pathname)
+    : publisher === 'hangzhou' ? /^\/jingji\/content\/\d{4}-\d{2}\/\d{2}\/content_\d+\.htm$/.test(parsed.pathname)
+    : publisher === 'evolis'
     ? parsed.protocol === 'https:' && /^\/blog\/(?!category(?:\/|$)|tag(?:\/|$)|page(?:\/|$)|feed(?:\/|$))[a-z\d_%.-]+\/?$/i.test(parsed.pathname)
     : publisher === 'ithome'
     ? /^\/\d+\/\d{3}\/\d{3}\.htm$/.test(parsed.pathname)
@@ -50,7 +54,9 @@ function imageUrl(value, base) {
     const parsed = new URL(value, base);
     if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password || parsed.port) return null;
     const publisher = PUBLISHERS.get(new URL(base).hostname);
-    const allowed = publisher === 'evolis'
+    const allowed = publisher === 'cnxw' ? false : publisher === 'mrkl' ? parsed.protocol === 'https:' && parsed.hostname === 'www.mrkl.com.cn' && /^\/uploads\/allimg\/\d{8}\/[^/]+\.(?:jpe?g|png)$/i.test(parsed.pathname)
+      : publisher === 'hangzhou' ? parsed.protocol === 'https:' && parsed.hostname === 'hznews.hangzhou.com.cn' && /^\/jingji\/content\/\d{4}-\d{2}\/\d{2}\/[^/]+\.(?:jpe?g|png)$/i.test(parsed.pathname)
+      : publisher === 'evolis'
       ? parsed.protocol === 'https:' && ['www.evolis.com', 'fr.evolis.com'].includes(parsed.hostname) && /^\/wp-content\/uploads\//.test(parsed.pathname)
       : publisher === 'ithome'
       ? parsed.hostname === 'img.ithome.com'
@@ -79,9 +85,12 @@ function publishedTime(document) {
   const value = text(document.querySelector('#pubtime_baidu, time[datetime]')?.getAttribute('datetime')
     || document.querySelector('#pubtime_baidu')?.textContent
     || document.querySelector('meta[property="article:published_time"]')?.getAttribute('content')
-    || document.querySelector('.title_area .info')?.textContent);
+    || document.querySelector('.title_area .info')?.textContent
+    || document.querySelector('.newscontent-date .te')?.textContent
+    || document.querySelector('.pub_date')?.textContent?.replace(/.*?(\d{4})年(\d{2})月(\d{2})日.*/, '$1-$2-$3')
+    || document.querySelector('meta[name="publishdate"]')?.getAttribute('content'));
   const local = value.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})\s+(\d{2}:\d{2}(?::\d{2})?)/);
-  const normalized = local ? `${local[1]}-${local[2].padStart(2, '0')}-${local[3].padStart(2, '0')}T${local[4]}+08:00` : value;
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00+08:00` : local ? `${local[1]}-${local[2].padStart(2, '0')}-${local[3].padStart(2, '0')}T${local[4]}+08:00` : value;
   const time = normalized ? Date.parse(normalized) : NaN;
   return Number.isFinite(time) ? new Date(time).toISOString() : null;
 }
@@ -89,7 +98,7 @@ function publishedTime(document) {
 /** Parse verified publisher markup into text/image data. No source HTML is returned. */
 export function parseArticleHtml(html, item) {
   const document = new DOMParser().parseFromString(html, 'text/html');
-  const title = text(document.querySelector('h1')?.textContent
+  const title = text(document.querySelector('#artibodytitle, h1.title, h1, .tit .hzwRP_lname05')?.textContent
     || document.querySelector('meta[property="og:title"]')?.getAttribute('content')
     || document.title?.replace(/\s*[-_—]\s*(?:IT之家|中新网|中国新闻网)\s*$/, ''));
   const metadata = {
@@ -98,7 +107,9 @@ export function parseArticleHtml(html, item) {
     publishedAt: item.publishedAt || publishedTime(document),
   };
   const publisher = PUBLISHERS.get(new URL(item.url).hostname);
-  const root = publisher === 'evolis'
+  const root = publisher === 'cnxw' ? document.querySelector('#ftcg') : publisher === 'mrkl' ? document.querySelector('.newscontent-details article')
+    : publisher === 'hangzhou' ? document.querySelector('.zhengwen')
+    : publisher === 'evolis'
     ? document.querySelector('article .single-post__content')
       || document.querySelector('article .entry-content, article .post-content, article .content, .entry-content')
       || document.querySelector('article')
@@ -278,12 +289,12 @@ async function fetchArticleHtml(initialUrl) {
 function fallbackItem(id, url) {
   const publisher = PUBLISHERS.get(new URL(url).hostname);
   const section = new URL(url).pathname.split('/')[1];
-  const category = publisher === 'evolis' ? 'badges' : publisher === 'cctv' ? 'nba' : publisher === 'ithome' ? 'tech'
+  const category = ['cnxw', 'mrkl', 'hangzhou', 'evolis'].includes(publisher) ? 'badges' : publisher === 'cctv' ? 'nba' : publisher === 'ithome' ? 'tech'
     : ['cj', 'stock', 'auto', 'house'].includes(section) ? 'business'
       : ['gj', 'hr'].includes(section) ? 'world'
         : ['cul', 'yl', 'shuhu'].includes(section) ? 'culture'
           : ['ty', 'sh', 'jk', 'life', 'travel', 'edu', 'health'].includes(section) ? 'life' : 'hot';
-  return { id, title: '', summary: '', url, source: publisher === 'evolis' ? 'Evolis 官方' : publisher === 'cctv' ? '央视网' : publisher === 'ithome' ? 'IT之家' : '中国新闻网', sourceId: publisher, category, publishedAt: null };
+  return { id, title: '', summary: '', url, source: publisher === 'cnxw' ? '苍南新闻网' : publisher === 'mrkl' ? '麦瑞科林' : publisher === 'hangzhou' ? '杭州网' : publisher === 'evolis' ? 'Evolis 官方' : publisher === 'cctv' ? '央视网' : publisher === 'ithome' ? 'IT之家' : '中国新闻网', sourceId: publisher, category, publishedAt: null };
 }
 
 /** Validate identity before either article or image endpoints do network work. */

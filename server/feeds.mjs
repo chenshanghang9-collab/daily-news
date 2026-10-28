@@ -3,9 +3,9 @@ import { DOMParser } from 'linkedom';
 
 /** Public publisher feeds. No API keys, scraping service, or generated stories. */
 const FEEDS = [
-  // Evolis disables its public RSS endpoint. Read the publisher's actual blog
-  // listing instead, keeping source dates unknown unless verified in detail.
-  { id: 'evolis-badges', name: 'Evolis 官方', url: 'https://www.evolis.com/blog/', category: 'badges', format: 'evolis-blog' },
+  { id: 'mrkl-badges', name: '麦瑞科林', url: 'https://www.mrkl.com.cn/dynamic/', category: 'badges', format: 'mrkl-list' },
+  { id: 'cnxw-badges', name: '苍南新闻网', url: 'https://www.cnxw.com.cn/cnxw/xzbm/index.shtml', category: 'badges', format: 'cnxw-list' },
+  { id: 'hangzhou-badges', name: '潮新闻（杭州网转载）', url: 'https://hznews.hangzhou.com.cn/jingji/content/2023-09/25/content_8622596.htm', category: 'badges', format: 'domestic-selection' },
   { id: 'chinanews-hot', name: '中国新闻网', url: 'https://www.chinanews.com.cn/rss/scroll-news.xml', category: 'hot' },
   { id: 'ithome', name: 'IT之家', url: 'https://www.ithome.com/rss/', category: 'tech' },
   { id: 'chinanews-world', name: '中国新闻网', url: 'https://www.chinanews.com.cn/rss/world.xml', category: 'world' },
@@ -18,27 +18,137 @@ const FEEDS = [
   { id: 'cctv-nba', name: '央视网', url: 'https://sports.cctv.com/2019/07/gaiban/cmsdatainterface/page/nba_remen_1.jsonp', category: 'nba', format: 'cctv-nba' },
 ];
 
-// Verified against official detail metadata on 2026-10-28. These are source
-// selections for an outage, with original dates; they are never new live news.
-const VERIFIED_BADGE_ARTICLES = [
-  {"slug": "evolis-reaches-the-historic-one-million-printer-milestone", "title": "Evolis Reaches the Historic One-Million-Printer Milestone", "titleZh": "Evolis 证卡打印机累计产量突破一百万台", "publishedAt": "2026-10-13T07:25:30.000Z", "summary": "Evolis 宣布其法国 Beaucouzé 工厂累计生产的证卡打印机超过一百万台。厂商介绍其设备覆盖学生卡、工作证、医疗识别卡和活动证件等场景，并披露了生产、研发及合作伙伴网络情况。"},
-  {"slug": "evolis-dna-one-family-comprehensive-solutions-for-your-printing-projects", "title": "The Evolis DNA, One Family, Comprehensive Solutions for Your Printing Projects", "titleZh": "Evolis 产品线：为不同制卡需求选择打印方案", "publishedAt": "2026-04-23T08:04:50.000Z", "summary": "Evolis 介绍证卡打印机产品线：Zenius 2 面向简单小批量作业，Primacy 2 面向更高打印量，Agilia 使用再转印技术，面向高画质和要求较高的应用。文章也提到耗材及制卡软件。"},
-  {"slug": "zenius-2-evolis-announces-the-arrival-of-the-little-genius-of-the-family", "title": "Zenius 2: Evolis announces the arrival of the “little genius of the family”", "titleZh": "Evolis 发布 Zenius 2 证卡打印机", "publishedAt": "2025-09-09T07:00:26.000Z", "summary": "Evolis 发布 Zenius 2 证卡打印机，介绍其彩色及单色打印速度、可擦写卡支持、收卡容量和打印后数字数据擦除功能。厂商将其定位为面向基础制卡需求的紧凑型设备。"},
+// Source selections independently verified from saved publisher HTML on 2026-10-28.
+// Old publication dates are retained; technical references are never labelled breaking news.
+const DOMESTIC_BADGE_SELECTIONS = [
+  {
+    "title": "从接单代工到自创网红文创IP 金乡徽章厂全新转型精彩蝶变",
+    "url": "https://www.cnxw.com.cn/system/2026/09/28/015595326.shtml",
+    "source": "苍南新闻网",
+    "summary": "报道徽章厂从代工转向原创设计，介绍设计、研发、打样和生产协作及个性化打印探索。",
+    "image": null,
+    "publishedAt": "2026-09-28T00:00:00+08:00",
+    "contentType": "industry_news",
+    "originalLanguage": "zh",
+    "sourceNote": "页面发布日期为2026年9月28日，正文消息日期为2026年9月22日，均按来源保留。"
+  },
+  {
+    "title": "从北京到杭州：时隔33年，为什么亚运会徽章还是浙江这家乡镇企业造？",
+    "url": "https://hznews.hangzhou.com.cn/jingji/content/2023-09/25/content_8622596.htm",
+    "source": "潮新闻（杭州网转载）",
+    "summary": "报道金乡徽章厂生产亚运徽章的历史、材料和工艺，采访介绍冲压、成型、电镀和点漆等环节的变化。",
+    "image": "https://hznews.hangzhou.com.cn/jingji/content/2023-09/25/426b8879-82a5-48f5-b3ee-f79b719af387.jpg",
+    "publishedAt": "2023-09-25T00:00:00+08:00",
+    "contentType": "industry_news",
+    "originalLanguage": "zh",
+    "sourceNote": "国内历史行业报道，保留2023年9月25日的页面发布日期。"
+  },
+  {
+    "title": "Fagoo P360e证卡打印机清洁方法",
+    "url": "https://www.mrkl.com.cn/news/818.html",
+    "source": "证卡打印机之家（麦瑞科林转载）",
+    "summary": "介绍指定型号进入清洁模式、移除卡片与色带、插入清洁卡和清洁滚轴的步骤。",
+    "image": "https://www.mrkl.com.cn/uploads/allimg/20240415/1-240415162JNR.jpg",
+    "publishedAt": "2024-04-15T00:00:00+08:00",
+    "contentType": "technique",
+    "originalLanguage": "zh",
+    "sourceNote": "国内中文来源，保留原始发布日期；技术资料请以设备说明书为准。"
+  },
+  {
+    "title": "证卡打印机如何选择清洁卡",
+    "url": "https://www.mrkl.com.cn/news/817.html",
+    "source": "麦瑞科林",
+    "summary": "讨论证卡打印机清洁卡的型号兼容性、清洁卡类型、尺寸、包装及价格。",
+    "image": "https://www.mrkl.com.cn/uploads/allimg/20240412/1-2404121G41T04.jpg",
+    "publishedAt": "2024-04-12T00:00:00+08:00",
+    "contentType": "technique",
+    "originalLanguage": "zh",
+    "sourceNote": "国内中文来源，保留原始发布日期；技术资料请以设备说明书为准。"
+  },
+  {
+    "title": "Datacard证卡打印机常见故障及解决方法",
+    "url": "https://www.mrkl.com.cn/news/840.html",
+    "source": "办公设备故障查询解疑（麦瑞科林转载）",
+    "summary": "整理证卡打印机色带消耗及其他常见故障排查方法；需针对实际型号核对。",
+    "image": "https://www.mrkl.com.cn/uploads/allimg/20240617/1-24061G55521202.jpg",
+    "publishedAt": "2024-06-17T00:00:00+08:00",
+    "contentType": "technique",
+    "originalLanguage": "zh",
+    "sourceNote": "国内中文来源，保留原始发布日期；技术资料请以设备说明书为准。"
+  }
 ];
-// Chinese introductions are editorial summaries of these six verified sources;
-// article bodies and source titles remain in their original language.
-const VERIFIED_BADGE_DETAILS = new Map([
-  ...VERIFIED_BADGE_ARTICLES.map(item => [`https://www.evolis.com/blog/${item.slug}/`, { publishedAt: item.publishedAt, titleZh: item.titleZh, summaryZh: item.summary }]),
-  ["https://www.evolis.com/blog/we-tested-id-all-for-you-the-new-id-card-creation-software/", {"publishedAt": "2025-06-11T09:47:10.000Z", "titleZh": "ID-ALL 制卡软件实测：版式、数据与批量打印", "summaryZh": "Evolis 评测 CARDPRESSO 的 ID-ALL 制卡软件，介绍证卡版式、动态字段、图片处理、数据库连接、批量及条件打印等功能，并对不同版本的适用场景作出说明。文章测试使用 Expert 版本。"}],
-  ["https://www.evolis.com/blog/everything-need-to-know-about-direct-to-card-printing-technology/", {"publishedAt": "2025-04-23T07:38:00.000Z", "titleZh": "直接证卡打印技术：原理、适用场景与限制", "summaryZh": "文章介绍直接证卡打印的基本过程、工牌和学生卡等用途，并比较其与再转印在边缘留白、卡片表面、耐磨性和成本上的差异，适合为制卡订单选择打印工艺时参考。"}],
-  ["https://www.evolis.com/blog/what-is-a-retransfer-card-printer/", {"publishedAt": "2025-01-31T14:14:24.000Z", "titleZh": "再转印制卡技术：流程、优势与成本取舍", "summaryZh": "Evolis 解释再转印先将图案打印在透明膜上，再通过热压转移到卡片的流程，并介绍其满版、材料适应性、耐用性与设备和耗材成本之间的取舍。"}],
-]);
-function curatedBadges(feed) {
-  return VERIFIED_BADGE_ARTICLES.map(({ slug, ...item }) => {
-    const url = `https://www.evolis.com/blog/${slug}/`;
-    return { ...item, summaryZh: item.summary, originalTitle: item.title, originalLanguage: 'en', url, id: createHash('sha256').update(url).digest('hex').slice(0, 16),
-      category: 'badges', source: feed.name, sourceId: feed.id, selection: 'curated' };
-  });
+function domesticSelections(feed) {
+  return DOMESTIC_BADGE_SELECTIONS
+    .filter(item => new URL(item.url).hostname === new URL(feed.url).hostname)
+    .map(item => ({ ...item, id: createHash('sha256').update(item.url).digest('hex').slice(0, 16),
+      sourceId: feed.id, category: 'badges', selection: 'curated' }));
+}
+
+// A date-only source is represented at midnight in China, never at fetch time.
+// Reject impossible calendar dates instead of accepting Date.parse rollover.
+function chinaDate(value) {
+  const normalized = value.replace(/^(\d{4})\/(\d{2})\/(\d{2})$/, '$1-$2-$3');
+  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const [year, month, day] = match.slice(1).map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) return null;
+  return `${normalized}T00:00:00+08:00`;
+}
+
+function domesticListItem(feed, title, url, publishedAt) {
+  const verified = DOMESTIC_BADGE_SELECTIONS.find(item => item.url === url);
+  return {
+    ...verified, title, url, publishedAt,
+    id: createHash('sha256').update(url).digest('hex').slice(0, 16),
+    source: verified?.source || feed.name, summary: verified?.summary || '',
+    sourceId: feed.id, category: 'badges', originalLanguage: 'zh',
+    contentType: feed.id === 'mrkl-badges' && /清洁|故障|方法|如何|维护|技术/.test(title)
+      ? 'technique' : 'industry_news',
+  };
+}
+
+function domesticListUrl(value, feed, pathPattern) {
+  const url = httpUrl(value || '', feed.url);
+  if (!url) return null;
+  const parsed = new URL(url);
+  return parsed.protocol === 'https:' && parsed.hostname === new URL(feed.url).hostname
+    && !parsed.username && !parsed.password && !parsed.port && !parsed.search
+    && pathPattern.test(parsed.pathname) ? url : null;
+}
+
+export function parseMrklList(html, feed = FEEDS.find(source => source.id === 'mrkl-badges')) {
+  const document = new DOMParser().parseFromString(html, 'text/html');
+  const items = [], seen = new Set();
+  for (const card of document.querySelectorAll('.info')) {
+    const anchor = card.querySelector('a.title');
+    const title = plainText(anchor?.textContent);
+    const url = domesticListUrl(anchor?.getAttribute('href'), feed, /^\/news\/\d+\.html$/);
+    if (!url || seen.has(url) || !/证卡|制卡|人像卡|工牌|校牌|胸牌|徽章/.test(title)) continue;
+    seen.add(url);
+    const publishedAt = chinaDate(plainText(card.querySelector('.time')?.textContent));
+    items.push(domesticListItem(feed, title, url, publishedAt));
+    if (items.length >= MAX_ITEMS_PER_FEED) break;
+  }
+  if (!items.length) throw new Error('国内来源暂未提供可读取的证卡文章');
+  return items;
+}
+
+export function parseCnxwList(html, feed = FEEDS.find(source => source.id === 'cnxw-badges')) {
+  const document = new DOMParser().parseFromString(html, 'text/html');
+  const items = [], seen = new Set();
+  for (const row of document.querySelectorAll('.list_e > ul > li')) {
+    const anchor = row.querySelector('a[href]');
+    const title = plainText(anchor?.textContent);
+    const url = domesticListUrl(anchor?.getAttribute('href'), feed, /^\/system\/\d{4}\/\d{2}\/\d{2}\/\d+\.shtml$/);
+    if (!url || seen.has(url) || !/工牌|校牌|胸牌|证卡|制卡|徽章/.test(title)) continue;
+    seen.add(url);
+    const publishedAt = chinaDate(plainText(row.querySelector('em')?.textContent));
+    items.push(domesticListItem(feed, title, url, publishedAt));
+    if (items.length >= MAX_ITEMS_PER_FEED) break;
+  }
+  if (!items.length) throw new Error('国内来源暂未提供徽章文章');
+  return items;
 }
 
 const CATEGORIES = ['hot', 'tech', 'world', 'life', 'culture', 'business', 'nba', 'badges'];
@@ -157,51 +267,6 @@ export function parseCctvNbaFeed(payload, feed = FEEDS.find((source) => source.i
   return items;
 }
 
-function isBadgeArticleUrl(value) {
-  try {
-    const url = new URL(value);
-    return url.protocol === 'https:' && !url.username && !url.password && !url.port
-      && url.hostname === 'www.evolis.com'
-      && /^\/blog\/(?!category(?:\/|$)|tag(?:\/|$)|page(?:\/|$)|feed(?:\/|$))[a-z\d_%.-]+\/?$/i.test(url.pathname);
-  } catch { return false; }
-}
-
-function isBadgeContent(title, summary, categories) {
-  // A vendor feed also contains corporate/CSR and recruitment announcements.
-  // Their product keywords do not make those useful industry articles.
-  if (/\b(?:csr|charit\w*|philanthrop\w*|recruit\w*|hiring|careers?|vacanc\w*|financial results|earnings|volunteer\w*)\b|招聘|公益|慈善|社会责任/i.test(title)) return false;
-  return /\b(?:cards?|badges?|ribbons?|laminat\w*|retransfer|sublimation|printers?|printing|personalization|personalisation|identification)\b|证卡|制卡|工牌|校牌|徽章|卡片|色带|热转印|打印头|胸牌/i.test(`${title} ${summary} ${categories}`);
-}
-
-/** Parse the exact article-card structure of the verified official blog listing. */
-export function parseEvolisBlog(html, feed = FEEDS.find(source => source.id === 'evolis-badges')) {
-  const document = new DOMParser().parseFromString(html, 'text/html');
-  const items = [];
-  const seen = new Set();
-  for (const card of document.querySelectorAll('a.tease-wrapper')) {
-    const title = plainText(card.querySelector('h2.tease__title')?.textContent);
-    const fullSummary = plainText(card.querySelector('p.tease__excerpt')?.textContent);
-    const categories = plainText(card.querySelector('.tease__category')?.textContent);
-    const url = httpUrl(card.getAttribute('href'), feed.url);
-    if (!title || !url || seen.has(url) || !isBadgeArticleUrl(url) || !isBadgeContent(title, fullSummary, categories)) continue;
-    seen.add(url);
-    const verified = VERIFIED_BADGE_DETAILS.get(url);
-    const rawDate = card.querySelector('time[datetime]')?.getAttribute('datetime');
-    const timestamp = rawDate ? Date.parse(rawDate) : NaN;
-    const publishedAt = Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : verified?.publishedAt || null;
-    const imageNode = card.querySelector('img');
-    const rawImage = imageNode?.getAttribute('data-lazy-src') || imageNode?.getAttribute('data-src') || imageNode?.getAttribute('src');
-    const image = rawImage ? httpUrl(rawImage, url) : null;
-    const summary = fullSummary.length > 180 ? `${fullSummary.slice(0, 177).trimEnd()}…` : fullSummary;
-    items.push({ id: createHash('sha256').update(url).digest('hex').slice(0, 16), title, summary, url,
-      source: feed.name, sourceId: feed.id, category: 'badges', publishedAt, originalTitle: title, originalLanguage: 'en',
-      ...(verified ? { titleZh: verified.titleZh, summaryZh: verified.summaryZh } : {}), ...(image ? { image } : {}) });
-    if (items.length >= MAX_ITEMS_PER_FEED) break;
-  }
-  if (!items.length) throw new Error('官方博客暂未提供可读取的证卡行业文章');
-  return items;
-}
-
 function parseFeed(xml, feed) {
   if (!/<rss\b/i.test(xml) || /<!DOCTYPE/i.test(xml)) {
     throw new Error('来源未返回支持的 RSS 内容');
@@ -240,11 +305,16 @@ function parseFeed(xml, feed) {
 }
 
 async function fetchSource(feed) {
+  if (feed.format === 'domestic-selection') {
+    sourceCache.set(feed.id, { items: domesticSelections(feed), fetchedAt: new Date().toISOString(), error: null, selection: 'curated' });
+    return true;
+  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     const response = await fetch(feed.url, {
       signal: controller.signal,
+      ...(feed.category === 'badges' ? { redirect: 'error' } : {}),
       headers: {
         accept: 'text/html, application/rss+xml, application/xml, application/json, text/javascript, text/xml;q=0.9',
         'user-agent': 'DailyBrief/1.0 (Public RSS reader)',
@@ -270,16 +340,20 @@ async function fetchSource(feed) {
       chunks.push(value);
     }
     const buffer = Buffer.concat(chunks);
-    const payload = buffer.toString('utf8');
+    const charset = response.headers.get('content-type')?.match(/charset\s*=\s*["']?([\w-]+)/i)?.[1]
+      || buffer.subarray(0, 1500).toString().match(/charset\s*=\s*["']?([\w-]+)/i)?.[1]
+      || 'utf-8';
+    const payload = new TextDecoder(charset).decode(buffer);
     const items = feed.format === 'cctv-nba' ? parseCctvNbaFeed(payload, feed)
-      : feed.format === 'evolis-blog' ? parseEvolisBlog(payload, feed) : parseFeed(payload, feed);
+      : feed.format === 'mrkl-list' ? parseMrklList(payload, feed)
+      : feed.format === 'cnxw-list' ? parseCnxwList(payload, feed) : parseFeed(payload, feed);
     sourceCache.set(feed.id, { items, fetchedAt: new Date().toISOString(), error: null });
     return true;
   } catch (error) {
     const previous = sourceCache.get(feed.id);
-    const useCurated = feed.format === 'evolis-blog' && (!previous?.items.length || previous.selection === 'curated' || Date.now() - Date.parse(previous.fetchedAt) > MAX_STALE_MS);
+    const useCurated = ['mrkl-list','cnxw-list'].includes(feed.format) && (!previous?.items.length || previous.selection === 'curated' || Date.now() - Date.parse(previous.fetchedAt) > MAX_STALE_MS);
     sourceCache.set(feed.id, {
-      items: useCurated ? curatedBadges(feed) : previous?.items ?? [],
+      items: useCurated ? domesticSelections(feed) : previous?.items ?? [],
       fetchedAt: useCurated ? new Date().toISOString() : previous?.fetchedAt ?? null,
       ...(useCurated ? { selection: 'curated' } : {}),
       error: error.name === 'AbortError' || controller.signal.aborted
@@ -298,7 +372,7 @@ async function refresh() {
 }
 
 /**
- * Aggregate verified public publisher feeds and the official card-industry blog.
+ * Aggregate verified public publisher feeds and domestic card/badge sources.
  *
  * category: hot | tech | world | life | culture | business | nba | badges (hot includes all).
  * force: refresh upstream feeds even inside the normal seven-minute cache TTL.
@@ -324,7 +398,7 @@ export async function getNews({ category = 'hot', force = false } = {}) {
       itemCount: usable ? cached.items.length : 0,
       fetchedAt: cached?.fetchedAt ?? null,
       ...(cached?.error ? { error: cached.error } : {}),
-      ...(cached?.selection === 'curated' ? { selection: 'curated', note: '来源暂不可用，展示 2026-10-28 已核实的官方文章选读，保留原发布日期。' } : {}),
+      ...(cached?.selection === 'curated' ? { selection: 'curated', note: '展示 2026-10-28 已核实的国内中文资料选读，保留原发布日期；技术资料不作为最新新闻。' } : {}),
     };
   });
 

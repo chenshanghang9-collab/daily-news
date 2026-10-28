@@ -4,6 +4,7 @@ import { isIP } from 'node:net';
 import { request } from 'node:https';
 import { createHash } from 'node:crypto';
 import { getNews } from './feeds.mjs';
+import { validateArticleRequest } from './articles.mjs';
 
 const categories = new Set(['hot', 'world', 'tech', 'life', 'culture', 'business', 'nba', 'badges']);
 const cache = new Map();
@@ -41,6 +42,8 @@ function allowedImageUrl(value) {
     const allowed = host === 'img.ithome.com' ||
       /^(?:i\d*|image\d*|www)\.chinanews\.com\.cn$/.test(host) ||
       /^p[1-5]\.img\.cctvpic\.com$/.test(host) ||
+      (host === 'www.mrkl.com.cn' && /^\/uploads\/allimg\/\d{8}\/[^/]+\.(?:jpe?g|png)$/i.test(url.pathname)) ||
+      (host === 'hznews.hangzhou.com.cn' && /^\/jingji\/content\/\d{4}-\d{2}\/\d{2}\/[^/]+\.(?:jpe?g|png)$/i.test(url.pathname)) ||
       host === 'image.cns.com.cn' || host === 'www.cnsphoto.com' ||
       (['www.evolis.com', 'fr.evolis.com'].includes(host) && /^\/wp-content\/uploads\//.test(url.pathname));
     return allowed ? url : null;
@@ -48,14 +51,7 @@ function allowedImageUrl(value) {
 }
 
 function validArticleUrl(value, id) {
-  try {
-    const url = new URL(value);
-    const evolis = url.hostname.toLowerCase() === 'www.evolis.com';
-    if (evolis && (url.protocol !== 'https:' || !/^\/blog\/(?!category(?:\/|$)|tag(?:\/|$)|page(?:\/|$)|feed(?:\/|$))[a-z\d_%.-]+\/?$/i.test(url.pathname))) return false;
-    return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password && !url.port &&
-      ['www.chinanews.com.cn', 'www.chinanews.com', 'www.ithome.com', 'sports.cctv.com', 'www.evolis.com'].includes(url.hostname.toLowerCase()) &&
-      createHash('sha256').update(url.href).digest('hex').slice(0, 16) === id;
-  } catch { return false; }
+  try { return Boolean(validateArticleRequest(id, value)); } catch { return false; }
 }
 
 async function localPhoto(category) {

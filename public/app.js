@@ -1,6 +1,6 @@
 import { createSiteMode, savedArticleFallback } from './site-mode.js?v=20261027-8';
 import { createNameStorage } from './name-storage.js?v=20261028-1';
-import { badgeGuides } from './badge-guides.js?v=20261028-2';
+import { badgeGuides } from './badge-guides.js?v=20261028-3';
 const $ = (selector) => document.querySelector(selector);
 const icons = {
   search: '<circle cx="10.8" cy="10.8" r="6.5"/><path d="m16 16 4.5 4.5"/>',
@@ -195,8 +195,8 @@ function timeLabel(value) {
 }
 function metadata(item) {
   if (item.kind === 'guide') return `<div class="story-meta"><span>${escapeHTML(item.source)}</span><span>${item.section === 'workflow' ? '制作流程' : '实用技巧'} · 本站整理</span></div>`;
-  const label = item.category === 'badges' && item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: 'long', day: 'numeric' }) : timeLabel(item.publishedAt);
-  return `<div class="story-meta"><span>${escapeHTML(item.source)}</span>${item.selection === 'curated' ? '<span>已核实选读</span>' : ''}<time${item.publishedAt ? ` datetime="${escapeHTML(item.publishedAt)}"` : ''} title="${escapeHTML(item.publishedAt ? new Date(item.publishedAt).toLocaleString('zh-CN') : '来源未提供发布时间')}">${escapeHTML(label)}</time></div>`;
+  const label = item.category === 'badges' && item.publishedAt ? `${item.originalLanguage === 'zh' ? '页面发布于 ' : ''}${new Date(item.publishedAt).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: 'long', day: 'numeric' })}` : timeLabel(item.publishedAt);
+  return `<div class="story-meta"><span>${escapeHTML(item.source)}</span>${item.contentType === 'technique' ? '<span>技术资料</span>' : item.contentType === 'industry_news' ? '<span>行业报道</span>' : ''}${item.selection === 'curated' ? '<span>已核实选读</span>' : ''}<time${item.publishedAt ? ` datetime="${escapeHTML(item.publishedAt)}"` : ''} title="${escapeHTML(item.publishedAt ? new Date(item.publishedAt).toLocaleString('zh-CN') : '来源未提供发布时间')}">${escapeHTML(label)}</time></div>`;
 }
 function bookmarkButton(item) { const saved = isSaved(item.id); return `<button class="bookmark${saved ? ' is-saved' : ''}" data-save="${escapeHTML(item.id)}" aria-label="${saved ? '取消收藏' : '收藏'}：${escapeHTML(item.title)}" aria-pressed="${saved}" title="${saved ? '取消收藏' : '收藏文章'}">${icon('bookmark')}</button>`; }
 function feedExcerpt(text, limit = 64) {
@@ -273,7 +273,7 @@ function render() {
   const query = state.query.toLocaleLowerCase();
   if (query) items = items.filter((item) => `${item.title} ${item.summary || ''} ${item.source || ''}`.toLocaleLowerCase().includes(query));
   $('#news-heading').textContent = saved ? '我的收藏' : categoryInfo(state.category).name;
-  $('#section-subtitle').textContent = state.query ? `找到 ${items.length} 篇相关内容` : saved ? '好内容，留着慢慢看' : state.category === 'hot' ? '值得你留意的新鲜事' : state.category === 'nba' ? '赛场动态、球队与球星，每天看一点' : badgeMode ? '工牌、校牌、胸牌与徽章制作' : '让好奇心，多走一步';
+  $('#section-subtitle').textContent = state.query ? `找到 ${items.length} 篇相关内容` : saved ? '好内容，留着慢慢看' : state.category === 'hot' ? '值得你留意的新鲜事' : state.category === 'nba' ? '赛场动态、球队与球星，每天看一点' : badgeMode ? '国内工牌、校牌、胸牌与徽章资讯' : '让好奇心，多走一步';
   $('#badge-hub').hidden = !badgeMode;
   if (badgeMode) {
     $('#badge-sections').innerHTML = badgeSections.map(section => `<button type="button" data-badge-section="${section.id}" aria-pressed="${state.badgeSection === section.id}">${section.name}<span>${section.id === 'news' ? state.items.filter(item => item.category === 'badges').length : badgeGuides.filter(item => item.section === section.id).length}</span></button>`).join('');
@@ -311,8 +311,8 @@ function updateStatus() {
   if (state.data.stale || state.data.status === 'partial') { el.classList.add('warning'); el.textContent += '。部分来源暂未更新，已保留最近内容'; }
   if (state.data.status === 'unavailable') { el.classList.add('warning'); el.textContent = '新闻源暂时无法连接，稍后再来看看。'; }
   if (state.category === 'badges') {
-    const source = state.data.sources?.find(source => source.category === 'badges');
-    el.textContent += `。${source?.note || '行业动态来自 Evolis 官方博客，产品信息为厂商介绍；旧文保留原始日期，来源未提供的日期不补写。'}`;
+    const notes = [...new Set((state.data.sources || []).filter(source => source.category === 'badges' && source.note).map(source => source.note))];
+    el.textContent += `。国内中文来源，行业报道与技术资料分别标注，保留原始日期${notes.length ? '。' + notes.join('；') : ''}`;
   }
 }
 document.addEventListener('click', (event) => {
@@ -405,8 +405,8 @@ function renderReader(article) {
   const bodyHasIntro = article.blocks.some(block => block.type === 'paragraph' && block.text === article.summaryZh);
   const related = (article.kind === 'guide' ? badgeGuides : state.items).filter((x) => x.id !== article.id && x.category === article.category).slice(0, 3);
   const attribution = article.kind === 'guide'
-    ? `日常整理的中文工作建议，参考以下资料：<br>${(article.references || []).map(ref => `${escapeHTML(ref.source)}《${escapeHTML(ref.title)}》 · ${escapeHTML(ref.publishedAt || '来源未注明日期')}`).join('<br>')}<br>指南内容由本站整理，技术与产品信息来自上述官方资料。`
-    : `内容来源：${escapeHTML(article.source)}${article.byline ? ' · ' + escapeHTML(article.byline) : ''}。文章与图片版权归原作者及原发布方所有。<br>由日常整理展示，保留来源标注与发布时间。`;
+    ? `日常整理的中文工作建议，参考以下资料：<br>${(article.references || []).map(ref => `${escapeHTML(ref.source)}《${escapeHTML(ref.title)}》 · ${escapeHTML(ref.publishedAt || '来源未注明日期')}`).join('<br>')}<br>技术与产品信息参考上述资料；本站补充的工作建议在正文中注明。`
+    : `内容来源：${escapeHTML(article.source)}${article.byline ? ' · ' + escapeHTML(article.byline) : ''}。${article.sourceNote ? escapeHTML(article.sourceNote.replace(/[。；\s]+$/u, '')) + '。' : ''}文章与图片版权归原作者及原发布方所有。<br>由日常整理展示，保留来源标注与发布时间。`;
   $('#reader-view').innerHTML = `<div class="reader-topline"><button class="reader-back" data-action="reader-back">${icon('back')}<span>返回资讯列表</span></button><span>日常 / ${escapeHTML(info.name)}</span></div><article class="reader-article"><header class="reader-header"><h1 id="reader-title" tabindex="-1">${escapeHTML(article.title)}</h1><div class="reader-meta-row">${metadata(article)}<div class="reader-save" id="reader-save"></div></div></header><figure class="reader-cover">${photo(article, true)}<figcaption data-original="${escapeHTML(coverCredit)}">栏目配图 · 作者及许可见页脚“照片版权”。</figcaption></figure>${article.savedSnapshotNotice ? `<div class="reader-notice"><strong>正在阅读本地收藏</strong><p>${escapeHTML(article.savedSnapshotNotice)}</p></div>` : ''}${article.status === 'summary' && !article.savedSnapshotNotice ? `<div class="reader-notice"><strong>当前可读内容为来源摘要</strong><p>完整正文暂时无法获取，我们先保留已发布的摘要。${site.isStatic ? '重新读取仅加载已发布快照，不会即时获取来源正文。' : '你可以稍后重新加载。'}</p><button data-action="reader-retry">${site.isStatic ? '重新读取快照' : '重新加载正文'}</button></div>` : ''}${article.titleZh && article.summaryZh ? `<div class="reader-notice"><strong>中文导读</strong>${bodyHasIntro ? '' : `<p>${escapeHTML(article.summary)}</p>`}<p>${article.status === 'full' ? '下方正文保留来源原文。' : '下方为当前保留的摘要内容。'}</p><p>原标题：${escapeHTML(article.originalTitle)}</p></div>` : ''}<div class="reader-body">${content || (article.savedSnapshotNotice ? '<p>此浏览器未保存这篇文章的摘要或正文。</p>' : '<p>来源暂未提供可读正文，请稍后再试。</p>')}</div><div class="reader-attribution"><span>${icon('source')}</span><p>${attribution}</p></div><button class="reader-bottom-back" data-action="reader-back">${icon('back')}<span>返回资讯列表</span></button></article>${related.length ? `<section class="reader-related"><div class="section-title"><h2>继续读一读</h2></div><div class="related-grid">${related.map((item) => `<article><a class="related-photo" href="${escapeHTML(articleHref(item))}" data-article="${escapeHTML(item.id)}">${photo(item)}</a><h3>${storyLink(item)}</h3>${metadata(item)}</article>`).join('')}</div></section>` : ''}`;
   updateReaderSave(); hydratePhotos();
   document.querySelectorAll('[data-body-photo]').forEach((img) => img.addEventListener('error', () => { img.src = categoryPhoto(article.category); img.removeAttribute('data-body-photo'); img.closest('figure').querySelector('figcaption').textContent = '栏目配图'; }, { once: true }));
