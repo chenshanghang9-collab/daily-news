@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node server/index.mjs",
     "dev": "node --watch server/index.mjs",
-    "check": "node --check public/app.js && node --check public/site-mode.js && node --check scripts/export-pages.mjs && node --check server/index.mjs && node --check server/feeds.mjs && node --check server/articles.mjs && node --check server/images.mjs && node --check api/news.mjs && node --check api/article.mjs && node --check api/image.mjs && node --check api/health.mjs",
+    "check": "node --check public/app.js && node --check public/name-storage.js && node --check public/site-mode.js && node --check scripts/export-pages.mjs && node --check server/index.mjs && node --check server/feeds.mjs && node --check server/articles.mjs && node --check server/images.mjs && node --check api/news.mjs && node --check api/article.mjs && node --check api/image.mjs && node --check api/health.mjs",
     "test": "node --test",
     "build:pages": "node scripts/export-pages.mjs",
     "deploy": "npx vercel@48.9.0 --prod"

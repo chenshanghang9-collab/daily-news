@@ -162,9 +162,11 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .login-fields h2 { font-size: var(--text-3xl); line-height: 1.4; }
 .login-description { margin-block: var(--space-md) var(--space-lg); color: var(--color-muted); font-size: var(--text-sm); line-height: 1.8; }
 .login-fields label { display: block; font-size: var(--text-sm); margin-bottom: var(--space-xs); }
-.login-fields input { width: 100%; min-height: 54px; border: 1px solid var(--color-muted); border-radius: var(--radius-input); background: var(--color-card); color: var(--color-ink); padding: var(--space-sm) var(--space-md); }
+#name-input { width: 100%; min-height: 54px; border: 1px solid var(--color-muted); border-radius: var(--radius-input); background: var(--color-card); color: var(--color-ink); padding: var(--space-sm) var(--space-md); }
 input::placeholder { color: var(--color-muted); opacity: 1; }
 .name-error { color: var(--color-error); font-size: var(--text-sm); min-height: 1.6em; margin-block: var(--space-xs) var(--space-md); }
+.login-fields .remember-name { display: flex; align-items: center; gap: var(--space-sm); min-height: 44px; margin-block: calc(-1 * var(--space-sm)) var(--space-md); font-size: var(--text-sm); line-height: 1.6; cursor: pointer; }
+.remember-name input { appearance: auto; -webkit-appearance: checkbox; width: 20px; height: 20px; margin: 0; flex: 0 0 20px; accent-color: var(--color-accent); cursor: pointer; }
 .login-submit { width: 100%; }
 .login-footnote { text-align: center; color: var(--color-muted); font-size: var(--text-sm); margin-top: var(--space-lg); }
 .toast { position: fixed; z-index: var(--z-toast); bottom: var(--space-lg); left: 50%; max-width: calc(100% - var(--space-xl)); width: max-content; transform: translate(-50%, 20px); padding: var(--space-md) var(--space-lg); background: var(--color-ink); color: var(--color-paper); border-radius: var(--radius-stock); opacity: 0; pointer-events: none; transition: opacity var(--dur-short) var(--ease-snap), transform var(--dur-short) var(--ease-snap); }

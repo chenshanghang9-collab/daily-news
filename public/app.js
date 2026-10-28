@@ -1,4 +1,5 @@
 import { createSiteMode, savedArticleFallback } from './site-mode.js?v=20261027-8';
+import { createNameStorage } from './name-storage.js?v=20261028-1';
 const $ = (selector) => document.querySelector(selector);
 const icons = {
   search: '<circle cx="10.8" cy="10.8" r="6.5"/><path d="m16 16 4.5 4.5"/>',
@@ -24,8 +25,9 @@ const categories = [
 const categoryInfo = (id) => categories.find((c) => c.id === id) || categories[0];
 function readStorage(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } }
 function writeStorage(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch { toast('浏览器暂时无法保存，下次打开可能需要重新输入名字。'); return false; } }
-const savedName = readStorage('daily.name', '');
-const state = { name: typeof savedName === 'string' ? savedName.slice(0, 16) : '', category: 'hot', query: '', items: [], data: null, saved: [], limit: 10, loading: false, loaded: false };
+const nameStorage = createNameStorage();
+const savedLogin = nameStorage.load();
+const state = { name: savedLogin.name, rememberName: savedLogin.remember, category: 'hot', query: '', items: [], data: null, saved: [], limit: 10, loading: false, loaded: false };
 state.article = null;
 state.carousel = { items: [], index: 0, scope: '' };
 let articleRequest = 0;
@@ -114,19 +116,22 @@ function updateUser() {
   $('#saved-count').textContent = state.saved.length;
   $('#saved-count').hidden = !state.saved.length;
 }
-function openLogin() { $('#name-input').value = state.name; $('#name-error').textContent = ''; if (!$('#login-dialog').open) $('#login-dialog').showModal(); setTimeout(() => $('#name-input').focus(), 100); }
+function openLogin() { $('#name-input').value = state.name; $('#remember-name').checked = state.rememberName; $('#name-error').textContent = ''; if (!$('#login-dialog').open) $('#login-dialog').showModal(); setTimeout(() => $('#name-input').focus(), 100); }
 $('#login-form').addEventListener('submit', (event) => {
   event.preventDefault();
   const name = $('#name-input').value.replace(/[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g, '').trim().replace(/\s+/g, ' ');
   if (!name) { $('#name-error').textContent = '名字还没有填好哦，写下你想用的称呼。'; $('#name-input').focus(); return; }
   state.name = Array.from(name).slice(0, 16).join('');
-  writeStorage('daily.name', state.name); loadSaved(); updateUser(); render(); updateReaderSave(); $('#login-dialog').close();
+  const saved = nameStorage.save(state.name, $('#remember-name').checked);
+  state.rememberName = saved.remember;
+  if (!saved.stored) toast('浏览器暂时无法保存登录选择，下次打开可能需要重新输入名字。');
+  loadSaved(); updateUser(); render(); updateReaderSave(); $('#login-dialog').close();
 });
 $('#login-dialog').addEventListener('cancel', (event) => { if (!state.name) event.preventDefault(); });
 $('#user-button').addEventListener('click', () => { if (!state.name) return openLogin(); const menu = $('#user-menu'); menu.hidden = !menu.hidden; $('#user-button').setAttribute('aria-expanded', String(!menu.hidden)); });
 document.addEventListener('click', (event) => { if (!event.target.closest('.header-actions')) { $('#user-menu').hidden = true; $('#user-button').setAttribute('aria-expanded', 'false'); } });
 $('#switch-name').addEventListener('click', () => { $('#user-menu').hidden = true; $('#user-button').setAttribute('aria-expanded', 'false'); openLogin(); });
-$('#logout').addEventListener('click', () => { state.name = ''; state.saved = []; writeStorage('daily.name', ''); $('#user-menu').hidden = true; $('#user-button').setAttribute('aria-expanded', 'false'); updateUser(); render(); updateReaderSave(); openLogin(); });
+$('#logout').addEventListener('click', () => { state.name = ''; state.rememberName = false; state.saved = []; if (!nameStorage.clear()) toast('浏览器暂时无法清除登录记录，请在浏览器设置中清除本站数据。'); $('#user-menu').hidden = true; $('#user-button').setAttribute('aria-expanded', 'false'); updateUser(); render(); updateReaderSave(); openLogin(); });
 
 $('#nav-tabs').innerHTML = categories.map((category) => `<button class="nav-tab${category.id === 'hot' ? ' active' : ''}" data-category="${category.id}" aria-pressed="${category.id === 'hot'}">${category.name}</button>`).join('');
 function revealSelectedTab() {

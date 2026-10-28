@@ -8,10 +8,10 @@
   <meta property="og:title" content="日常 DAILY · 每天，和世界见一面">
   <meta property="og:description" content="一份属于你的日常。今日要闻、科技、世界、生活、文化、商业和 NBA。">
   <title>日常 DAILY · 每天，和世界见一面</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261027-8">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261028-1">
   <link rel="preload" href="/fonts/chillax-variable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/style.css?v=20261027-8">
-  <script type="module" src="/app.js?v=20261027-8"></script>
+  <link rel="stylesheet" href="/style.css?v=20261028-1">
+  <script type="module" src="/app.js?v=20261028-1"></script>
 </head>
 <body>
   <a class="skip-link" href="#news-heading">跳到新闻内容</a>
@@ -49,7 +49,21 @@
     </main>
     <footer class="footer"><a class="footer-brand" href="/">日常 <small>daily</small></a><span>在日常里，遇见更大的世界。</span><a class="photo-licenses" href="/images/credits.html">照片版权</a></footer>
   </div>
-  <dialog id="login-dialog" class="login-dialog" aria-labelledby="login-title"><form id="login-form"><div class="login-cover"><div class="login-brand">日常 <small>daily</small></div><p>每天，<br>和世界<br>见一面。</p><span>一份属于你的日常。</span></div><div class="login-fields"><h2 id="login-title">你好，<br>怎么称呼你？</h2><p class="login-description">每天花一点时间，看看世界的新鲜事。</p><label for="name-input">你的名字</label><input id="name-input" name="name" placeholder="写下你喜欢的称呼" maxlength="16" autocomplete="nickname" required><p id="name-error" class="name-error" role="alert"></p><button class="login-submit primary-action" type="submit">开启我的日常</button><p class="login-footnote">不需要密码，一个名字就能开始。</p></div></form></dialog>
+  <dialog id="login-dialog" class="login-dialog" aria-labelledby="login-title">
+    <form id="login-form">
+      <div class="login-cover"><div class="login-brand">日常 <small>daily</small></div><p>每天，<br>和世界<br>见一面。</p><span>一份属于你的日常。</span></div>
+      <div class="login-fields">
+        <h2 id="login-title">你好，<br>怎么称呼你？</h2>
+        <p class="login-description">每天花一点时间，看看世界的新鲜事。</p>
+        <label for="name-input">你的名字</label>
+        <input id="name-input" name="name" placeholder="写下你喜欢的称呼" maxlength="16" autocomplete="nickname" aria-describedby="name-error" required>
+        <p id="name-error" class="name-error" role="alert"></p>
+        <label class="remember-name" for="remember-name"><input id="remember-name" name="remember-name" type="checkbox"><span>30天内记住我的用户名</span></label>
+        <button class="login-submit primary-action" type="submit">开启我的日常</button>
+        <p class="login-footnote">不需要密码，一个名字就能开始。</p>
+      </div>
+    </form>
+  </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
